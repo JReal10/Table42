@@ -4,6 +4,7 @@ pydantic
 python-dotenv
 langchain
 elevenlabs
+pyaudio
 #faiss-cpu
 #requests
 
