@@ -9,5 +9,9 @@ pyaudio
 pinecone-notebooks
 openai
 requests
+aipolabs
+langgraph
+
+
 
 

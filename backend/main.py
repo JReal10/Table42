@@ -14,11 +14,6 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
   responses:str
 
-@app.get("/")
-async def test():
-  return ("testing")
-
-
 def start_server():
   uvicorn.run(app, host = "localhost", port = 8000)
   
