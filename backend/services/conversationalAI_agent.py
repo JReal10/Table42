@@ -6,6 +6,8 @@ from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
+from tts import text_to_speech
+
 class ReactAgent:
     def __init__(self):
         # Load environment variables from .env file
@@ -41,31 +43,38 @@ class ReactAgent:
 
     def run_interactive(self):
         """
-        Runs an interactive loop, asking for user input and processing it through the agent.
-        The loop continues until a termination phrase is entered or the agent invokes the termination tool.
+        Runs an interactive loop. For each user input, the agent generates a response,
+        which is then converted to speech via the TTS function.
         """
         print("Interactive Agent Started. Type your message or 'quit' to exit.")
         config = {"configurable": {"thread_id": "abc123"}}
         
         while True:
-            # Ask for user input
+            # Get user input
             user_input = input(">> ")
             
-            # Check for termination phrases in the user input
+            # Check for termination phrases
             self.termination_tool(user_input)
             
-            # Build the message payload for the agent
+            # Create the message payload for the agent
             messages = [HumanMessage(content=user_input)]
             
-            # Process the input through the agent and stream the response
+            # Process the input through the agent and stream the response.
+            # Here, we accumulate the final response text.
+            response_text = ""
             for step in self.agent_executor.stream(
                 {"messages": messages},
                 config,
                 stream_mode="values",
             ):
-                # Print the agent's response
-                step["messages"][-1].pretty_print()
-
+                # Assume the last message contains the response.
+                message = step["messages"][-1]
+                response_text = message.content
+                message.pretty_print()
+            
+            # Convert the final response text to speech.
+            print("Converting agent's response to speech...")
+            text_to_speech(response_text)
 
 if __name__ == "__main__":
     agent = ReactAgent()

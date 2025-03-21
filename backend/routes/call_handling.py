@@ -1,8 +1,11 @@
 import os
 import uvicorn
 from fastapi import FastAPI, Request
+from dotenv import load_dotenv
 from twilio.twiml.voice_response import VoiceResponse
 from twilio.rest import Client
+
+load_dotenv
 
 class TwilioVoiceService:
     """
@@ -64,7 +67,6 @@ if __name__ == "__main__":
         to_number="+15017122661",
         url="http://demo.twilio.com/docs/voice.xml"
     )
-    print("Outbound Call SID:", outbound_call_sid)
-
+    
     # Start the FastAPI server using uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, debug=True)
