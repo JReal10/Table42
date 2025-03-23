@@ -3,10 +3,10 @@ import os
 from dotenv import load_dotenv
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage
+from langchain_core.prompts import PromptTemplate
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
-
-from tts import text_to_speech
+from rag import RAGSystem
 
 class ReactAgent:
     def __init__(self):
@@ -23,24 +23,22 @@ class ReactAgent:
         self.agent_executor = create_react_agent(self.model, self.tools, checkpointer=self.memory)
 
     @staticmethod
-    def termination_tool(query: str) -> str:
-        """
-        Checks if the query contains any ending phrases.
-        If an ending phrase is detected, the process is terminated.
-        """
-        ending_phrases = ["goodbye", "bye", "exit", "quit"]
-        if any(phrase in query.lower() for phrase in ending_phrases):
-            sys.exit("Ending phrase detected. Terminating agent.")
-        return "No termination phrase detected."
-
-    @staticmethod
-    def pinecone_rag_lookup(query: str) -> str:
+    def rag_retriever(query: str, index_name: str) -> str:
         """
         Placeholder function for accessing the RAG vector storage from Pinecone.
         You can later integrate your Pinecone retrieval logic here.
         """
-        return "Pinecone RAG lookup not implemented yet."
+        rag = RAGSystem(index_name)
 
+        # Perform similarity search
+        results = rag.similarity_search_with_score(
+            "How is the weather today?",
+            k=1,
+        )
+        
+        return results        
+        
+                
     def run_interactive(self):
         """
         Runs an interactive loop. For each user input, the agent generates a response,
@@ -74,7 +72,6 @@ class ReactAgent:
             
             # Convert the final response text to speech.
             print("Converting agent's response to speech...")
-            text_to_speech(response_text)
 
 if __name__ == "__main__":
     agent = ReactAgent()
