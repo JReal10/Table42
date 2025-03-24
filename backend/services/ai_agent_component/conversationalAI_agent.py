@@ -8,6 +8,8 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 from rag import RAGSystem
 
+system_prompt = ""
+
 class ReactAgent:
     def __init__(self):
         # Load environment variables from .env file
@@ -16,7 +18,7 @@ class ReactAgent:
         
         # Initialize memory, model, and tools
         self.memory = MemorySaver()
-        self.model = init_chat_model("gpt-4o-mini", model_provider="openai", api_key=self.openai_api_key)
+        self.model = init_chat_model("gpt-4o-mini", model_provider="openai", api_key=self.openai_api_key, temperature = 0)
         self.tools = []
         
         # Create the agent executor using the react agent
@@ -51,11 +53,9 @@ class ReactAgent:
             # Get user input
             user_input = input(">> ")
             
-            # Check for termination phrases
-            self.termination_tool(user_input)
-            
             # Create the message payload for the agent
             messages = [HumanMessage(content=user_input)]
+            self.rag_retriever(user_input, index_name = "conv-ai")
             
             # Process the input through the agent and stream the response.
             # Here, we accumulate the final response text.
@@ -70,9 +70,6 @@ class ReactAgent:
                 response_text = message.content
                 message.pretty_print()
             
-            # Convert the final response text to speech.
-            print("Converting agent's response to speech...")
-
 if __name__ == "__main__":
     agent = ReactAgent()
     agent.run_interactive()

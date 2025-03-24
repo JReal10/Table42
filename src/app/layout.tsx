@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body className="flex">
         <Sidebar />
-        <main className="flex-1 p-6 relative">
+        <main className= "relative flex-[1_1_0]">
           {children}
         </main>
       </body>
