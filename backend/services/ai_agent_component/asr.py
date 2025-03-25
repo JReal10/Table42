@@ -11,12 +11,11 @@ from elevenlabs.client import ElevenLabs
 # Load environment variables from .env
 load_dotenv()
 
-
 class SilenceDetectingASRService:
     """
     A live automatic speech recognition (ASR) service that records audio until
-    silence is detected, converts it to text using the ElevenLabs API, and passes 
-    the transcription to an optional callback.
+    silence is detected, converts it to text using the ElevenLabs API, and returns
+    the transcription text. Optionally, a callback can be provided.
     """
 
     def __init__(self, callback=None, silence_threshold=1000, silence_duration=3.2):
@@ -84,13 +83,8 @@ class SilenceDetectingASRService:
         Returns:
             bool: True if the chunk is considered silent, False otherwise.
         """
-        # Convert byte data to numpy array of audio samples
         audio_samples = np.frombuffer(data_chunk, dtype=np.int16)
-        
-        # Calculate energy (volume) of the chunk
         energy = np.sqrt(np.mean(audio_samples.astype(np.float32)**2))
-        
-        # Return True if energy is below the threshold
         return energy < self.silence_threshold
 
     def _record_until_silence(self):
@@ -104,22 +98,22 @@ class SilenceDetectingASRService:
         silent_chunks = 0
         chunks_per_second = int(self.RATE / self.CHUNK)
         silence_limit = int(chunks_per_second * self.silence_duration)
-        
+
         # Wait for sound to start (skip initial silence)
         print("Waiting for speech...")
-        while self._running:
+        while True:
             data = self.stream.read(self.CHUNK, exception_on_overflow=False)
             if not self._is_silent(data):
                 print("Speech detected, recording...")
                 frames.append(data)
                 break
-            time.sleep(0.01)  # Small delay to prevent CPU overuse
-            
+            time.sleep(0.01)
+
         # Record until silence threshold is reached
-        while self._running:
+        while True:
             data = self.stream.read(self.CHUNK, exception_on_overflow=False)
             frames.append(data)
-            
+
             if self._is_silent(data):
                 silent_chunks += 1
                 if silent_chunks >= silence_limit:
@@ -127,7 +121,7 @@ class SilenceDetectingASRService:
                     break
             else:
                 silent_chunks = 0
-                
+
         return frames
 
     def _process_audio(self, frames):
@@ -136,14 +130,17 @@ class SilenceDetectingASRService:
 
         Args:
             frames (list): List of audio frames to process.
+
+        Returns:
+            str: The transcribed text.
         """
         if not frames:
             print("No audio recorded.")
-            return
+            return ""
             
         wav_bytes = self._get_wav_bytes(frames)
         print("Transcribing audio...")
-        
+
         try:
             transcription = self.client.speech_to_text.convert(
                 file=wav_bytes,
@@ -156,23 +153,21 @@ class SilenceDetectingASRService:
             print("Transcription:", text)
             if self.callback and text.strip():
                 self.callback(text)
+            return text
         except Exception as e:
             print("Error during transcription:", e)
+            return ""
 
-    def _transcribe_loop(self):
+    def transcribe(self):
         """
-        Continuously record audio when speech is detected, stop when silence is detected,
-        and process the audio by transcribing it.
+        Perform a one-shot recording session that listens until silence is detected,
+        transcribes the audio, and returns the transcribed text.
+
+        Returns:
+            str: The transcribed text.
         """
-        while self._running:
-            # Only one recording/processing can happen at a time
-            with self.processing_lock:
-                frames = self._record_until_silence()
-                if frames:
-                    self._process_audio(frames)
-            
-            # Small pause between recording sessions
-            time.sleep(0.2)
+        frames = self._record_until_silence()
+        return self._process_audio(frames)
 
     def start(self):
         """
@@ -183,6 +178,18 @@ class SilenceDetectingASRService:
             self.thread = threading.Thread(target=self._transcribe_loop, daemon=True)
             self.thread.start()
             print("Silence-detecting ASR service started.")
+
+    def _transcribe_loop(self):
+        """
+        Continuously record audio when speech is detected, stop when silence is detected,
+        and process the audio by transcribing it.
+        """
+        while self._running:
+            with self.processing_lock:
+                frames = self._record_until_silence()
+                if frames:
+                    self._process_audio(frames)
+            time.sleep(0.2)
 
     def stop(self):
         """
@@ -196,38 +203,27 @@ class SilenceDetectingASRService:
         self.pyaudio_instance.terminate()
         print("ASR service stopped.")
 
-
 def main():
     """
-    Example usage of the SilenceDetectingASRService class.
+    Example usage of the SilenceDetectingASRService class. This version performs a one-shot
+    recording, outputs the transcribed text, and then terminates.
     """
-    def handle_transcription(text):
-        print(f"Received transcription: {text}")
-        # Here you would send the text to your LLM and process the response
-        # For example:
-        # response = llm_service.generate_response(text)
-        # text_to_speech_service.speak(response)
-        print("LLM would process this text and respond...")
-
-    # Instantiate the ASR service with silence detection
-    # You may need to adjust these parameters based on your microphone and environment
+    # Instantiate the ASR service without a callback (since we want to get the transcription as output)
     asr_service = SilenceDetectingASRService(
-        callback=handle_transcription,
         silence_threshold=1000,  # Energy threshold for silence detection
         silence_duration=3.2     # Duration of silence to end recording (seconds)
     )
     
-    try:
-        asr_service.start()
-        # Keep the main thread alive while the service is running
-        print("Press Ctrl+C to stop...")
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Keyboard interrupt received. Stopping ASR service...")
-    finally:
-        asr_service.stop()
-
+    print("Please speak now...")
+    # Use the transcribe method to record and get the transcription as text.
+    transcribed_text = asr_service.transcribe()
+    print("Transcribed text:", transcribed_text)
+    
+    # Here, transcribed_text can now be passed to your conversational AI agent and RAG system.
+    # For example:
+    # enriched_context = rag.get_context(transcribed_text)
+    # agent_response = conversationalAI_agent.handle_input(transcribed_text, context=enriched_context)
+    # tts.speak_text(agent_response)
 
 if __name__ == "__main__":
     main()

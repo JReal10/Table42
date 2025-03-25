@@ -2,13 +2,11 @@ import os
 import time
 from uuid import uuid4
 from typing import List, Optional
-
 from dotenv import load_dotenv
 from pinecone import Pinecone, ServerlessSpec
 from langchain_openai import OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from langchain_core.documents import Document
-
 
 class RAGSystem:
     def __init__(

@@ -4,50 +4,23 @@ import os
 import openai
 import json
 
-load_dotenv
+load_dotenv()
 
-client = ACI(
-    # it reads from environment variable by default so you can omit it if you set it in your environment
-    api_key = os.getenv("AIPOLABS_ACI_API_KEY")
+client = ACI(api_key=os.getenv("AIPOLABS_ACI_API_KEY"))
 
-)
-# Set the API key as an environment variable
-os.getenv["OPENAI_API_KEY"]
-
-# No explicit initialization is needed for the 'openai' library
-# The library will automatically use the API key from the environment variable
-
-def get_tool_definitions():
-    """
-    Retrieves tool definitions for Google Calendar functions.
-    """
-    google_calendar_status = client.functions.get_definition("GOOGLE_CALENDAR__FREEBUSY_QUERY")
-    google_calendar_update = client.functions.get_definition("GOOGLE_CALENDAR__EVENTS_UPDATE")
-    google_calendar_reserve = client.functions.get_definition("GOOGLE_CALENDAR__EVENTS_INSERT")
-    google_calendar_delete = client.functions.get_definition("GOOGLE_CALENDAR__EVENTS_DELETE")
-    
+def get_aci_tool_definitions():
     return {
-        "status": google_calendar_status,
-        "update": google_calendar_update,
-        "reserve": google_calendar_reserve,
-        "delete": google_calendar_delete,
+        "status": client.functions.get_definition("GOOGLE_CALENDAR__FREEBUSY_QUERY"),
+        "update": client.functions.get_definition("GOOGLE_CALENDAR__EVENTS_UPDATE"),
+        "reserve": client.functions.get_definition("GOOGLE_CALENDAR__EVENTS_INSERT"),
+        "delete": client.functions.get_definition("GOOGLE_CALENDAR__EVENTS_DELETE"),
     }
 
+def initialize_messages(context):
 
-
-def initialize_messages():
-
-    context = (
-        "Lima's Pasta is located in the heart of downtown at 123 Main Street, Cityville. "
-        "The restaurant is easily accessible by public transport and offers nearby parking for your convenience."
-    )
-      
-    """
-    Initializes the conversation with a system prompt that outlines the role, objectives, and process.
-    """
     system_prompt = f"""
     ## Role and Objective
-    You are an advanced conversational AI agent designed to handle customer interactions related to restaurant bookings, reservations. Your core responsibility is ensuring seamless, polite, and professional customer service, covering:
+    You are an advanced conversational AI agent handling restaurant bookings for Lima's Pasta (jamieogundiran21@gmail.com).
 
     - **New reservations**
     - **Reservation modifications**
@@ -68,8 +41,8 @@ def initialize_messages():
     ### 1. Intent Identification
     - Detect intent (new booking, update, cancellation, inquiry) to streamline the conversation.
 
-    Example:  
-    If intent is detected:  
+    Example:
+    If intent is detected:
     "Would you like to make a new reservation, check an existing one, or modify/cancel a booking?"
 
     ---
@@ -105,108 +78,67 @@ def initialize_messages():
     - Always confirm details before finalizing.
     - Recap the reservation to ensure accuracy.
 
-    Example:  
-    "Your reservation is confirmed for [Number] guests on [Date] at [Time] under the name [Customer Name].  
+    Example:
+    "Your reservation is confirmed for [Number] guests on [Date] at [Time] under the name [Customer Name].
 
-    - For cancellations:  
+    - For cancellations:
     "Your reservation for [Date] at [Time] has been successfully canceled."
     """
-    
+
     return [{
         "role": "system",
         "content": system_prompt
     }]
 
+
 def process_tool_calls(message, messages):
-    """
-    Handles detected tool calls by executing the tool, appending the results to the conversation,
-    and making a follow-up GPT call to process the tool output.
-    """
-    print("\n[DEBUG] Tool call detected.")
-    for i, tool_call in enumerate(message.tool_calls):
-        print(f"[DEBUG] Tool Call {i + 1}:")
-        print(f"  - Function Name: {tool_call.function.name}")
-        print(f"  - Arguments: {tool_call.function.arguments}\n")
-    
-    # Process the first tool call detected
     tool_call = message.tool_calls[0]
-    function_name = tool_call.function.name
-    arguments = json.loads(tool_call.function.arguments)
-    
-    # Execute the tool
     execution_result = client.functions.execute(
-        function_name,
-        arguments,
+        tool_call.function.name,
+        json.loads(tool_call.function.arguments),
         linked_account_owner_id="prototype_demo"
     )
-    
-    result_content = execution_result.data
-    
-    # Append the tool call and its result to the messages history
+
     messages.append(message)
     messages.append({
         "role": "tool",
         "tool_call_id": tool_call.id,
-        "content": json.dumps(result_content)
+        "content": json.dumps(execution_result.data)
     })
-    
-    # Second GPT call to process the tool output and generate a final response
+
     final_response = openai.chat.completions.create(
         model="gpt-4o-mini",
-        messages=messages,
+        messages=messages
     )
-    
-    final_message = final_response.choices[0].message.content
-    print("Assistant:", final_message)
-    messages.append({
-        "role": "assistant",
-        "content": final_message
-    })
 
-def main():
-    # Retrieve tool definitions and organize them into a list for easy use.
-    tools = get_tool_definitions()
-    tool_list = [
-        tools["status"],
-        tools["delete"],
-        tools["reserve"],
-        tools["update"]
-    ]
+    return final_response.choices[0].message.content
+
+def get_assistant_response(transcribed_text, messages, tools):
+    messages.append({"role": "user", "content": transcribed_text})
+
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        tools=tools
+    )
+
+    message = response.choices[0].message
+
+    if message.tool_calls:
+        return process_tool_calls(message, messages)
+    else:
+        return message.content
+
+# Main integration point for transcribed input
+def handle_transcribed_input(transcribed_text, context):
+    tools = list(get_aci_tool_definitions().values())
+    messages = initialize_messages(context)
+
+    response = get_assistant_response(transcribed_text, messages, tools)
     
-    # Initialize conversation messages with the system prompt.
-    messages = initialize_messages()
-    print("Welcome to the Lima's store, how can I help you today? Type 'exit' to quit.\n")
-    
-    while True:
-        user_input = input("User: ")
-        if user_input.lower() in ['exit', 'quit']:
-            break
-        
-        # Append the user's message to the conversation history.
-        messages.append({
-            "role": "user",
-            "content": user_input,
-        })
-        
-        # First GPT call (which may invoke a tool)
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            tools=tool_list,
-        )
-        
-        message = response.choices[0].message
-        
-        # Check for tool calls in the assistant's response.
-        if message.tool_calls:
-            process_tool_calls(message, messages)
-        else:
-            print("\n[DEBUG] No tool call was made by the assistant.\n")
-            print("Assistant:", message.content)
-            messages.append({
-                "role": "assistant",
-                "content": message.content
-            })
+    return response
 
 if __name__ == '__main__':
-    main()
+    transcribed_text = input("Enter transcribed text: ")
+    assistant_response = handle_transcribed_input(transcribed_text)
+    print("\nAssistant Response:", assistant_response)
