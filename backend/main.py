@@ -6,7 +6,6 @@ from tests.test_routes import router as test_router
 from routes import call_handling
 from twilio.twiml.voice_response import VoiceResponse
 from twilio.rest import Client
-
 app = FastAPI(title = "ARQ API")
 twilio_service = call_handling.TwilioVoiceService()
 
@@ -14,7 +13,6 @@ twilio_service = call_handling.TwilioVoiceService()
 async def read_main():
     return {"msg": "Hello World"}
 
-  
 @app.api_route("/voice_api", methods=["GET", "POST"])
 async def voice(request: Request):
     """
