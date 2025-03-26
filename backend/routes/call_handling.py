@@ -14,8 +14,8 @@ class TwilioVoiceService:
     """
     def __init__(self):
         # Retrieve credentials from environment variables
-        self.account_sid = os.environ["TWILIO_ACCOUNT_SID"]
-        self.auth_token = os.environ["TWILIO_AUTH_TOKEN"]
+        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        self.auth_token = os.getenv("TWILIO_AUTH_TOKEN")
         self.client = Client(self.account_sid, self.auth_token)
 
     def send_outbound_call(self, from_number: str, to_number: str, url: str) -> str:
@@ -29,12 +29,13 @@ class TwilioVoiceService:
         )
         return call.sid
 
-    def generate_voice_response(self, city: str) -> str:
+    def generate_voice_response(self):
         """
         Generates a TwiML response that speaks a message including the caller's city.
         """
         resp = VoiceResponse()
-        resp.say('Never gonna give you up, {}!')
+        resp.say('Never gonna give you up, {city}!')
+        
         return str(resp)
 
 
