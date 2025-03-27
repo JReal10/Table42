@@ -10,7 +10,7 @@ load_dotenv()
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 client = ElevenLabs(api_key=ELEVENLABS_API_KEY)
 
-def text_to_speech(text, voice_id="JBFqnCBsd6RMkjVDRZzb", model_id="eleven_turbo_v2_5", output_format="mp3_44100_128"):
+def text_to_speech(text, voice_id="JBFqnCBsd6RMkjVDRZzb", model_id="eleven_flash_v2_5", output_format="mp3_44100_128"):
     """
     Convert text to speech using the ElevenLabs API and play the resulting audio.
 

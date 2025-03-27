@@ -3,11 +3,7 @@ import json
 import os
 from dotenv import load_dotenv
 from aipolabs import ACI
-
-import asr
-import tts
-import rag
-
+from .agent_component import SilenceDetectingASRService, RAGSystem, text_to_speech
 load_dotenv()
 
 # Initialize the client using your environment variable.
@@ -152,10 +148,10 @@ def initialize_conversation():
     tools = list(get_aci_tool_definitions().values())
     
     # Use RAG to enrich context based on the transcribed text.
-    rag_client = rag.RAGSystem(index_name="conv-ai")
+    rag_client = RAGSystem(index_name="conv-ai")
     # Initialize the ASR service for capturing audio input.
     
-    asr_service = asr.SilenceDetectingASRService(
+    asr_service = SilenceDetectingASRService(
         silence_threshold=1000,   # Energy threshold for silence detection.
         silence_duration=3.2      # Duration of silence to signal end of recording.
     )
@@ -163,7 +159,7 @@ def initialize_conversation():
     print("Start the conversation (say 'exit' to quit):")
     greeting = "Hi, this is Jamie from Lima's pasta, how can I help you today?"
     # Use TTS to speak the assistant's response.
-    initial_greeting = tts.text_to_speech(greeting)
+    text_to_speech(greeting)
     
     while True:
         # Capture user audio input.
@@ -186,7 +182,7 @@ def initialize_conversation():
         print("Assistant:", agent_response)
         
         # Use TTS to speak the assistant's response.
-        tts.text_to_speech(agent_response)
+        text_to_speech(agent_response)
 
 if __name__ == "__main__":
     # Provide any initial context if needed.
