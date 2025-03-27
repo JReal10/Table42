@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from aipolabs import ACI
 from .agent_component import SilenceDetectingASRService, RAGSystem, text_to_speech
+
 load_dotenv()
 
 # Initialize the client using your environment variable.
@@ -157,7 +158,7 @@ def initialize_conversation():
     )
     
     print("Start the conversation (say 'exit' to quit):")
-    greeting = "Hi, this is Jamie from Lima's pasta, how can I help you today?"
+    greeting = "Hi, How can I assist you today?"
     # Use TTS to speak the assistant's response.
     text_to_speech(greeting)
     
