@@ -1,83 +1,113 @@
 import os
-import time
-from uuid import uuid4
-from typing import List, Optional
+import requests
 from dotenv import load_dotenv
-from pinecone import Pinecone, ServerlessSpec
-from langchain_openai import OpenAIEmbeddings
-from langchain_pinecone import PineconeVectorStore
-from langchain_core.documents import Document
+from openai import OpenAI
+
+# Load environment variables
+load_dotenv()
 
 class RAGSystem:
-    def __init__(
-        self,
-        index_name: str,
-        dimension: int = 3072,
-        metric: str = "cosine",
-        cloud: str = "aws",
-        region: str = "us-east-1"
-    ):
-        load_dotenv()
-        self.index_name = index_name
-        self.dimension = dimension
-        self.metric = metric
-        self.spec = ServerlessSpec(cloud=cloud, region=region)
+    def __init__(self, vector_store_name: str):
+        """
+        Initialize the RAGSystem with OpenAI client and vector store.
+        """
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        self.client = OpenAI(api_key=self.openai_api_key)
+        self.vector_store = self._initialize_vector_store(vector_store_name)
 
-        self.pinecone_api_key = os.getenv("PINECONE_API_KEY")
-        self.pc = Pinecone(api_key=self.pinecone_api_key)
+    def _initialize_vector_store(self, vector_store_name: str):
+        """
+        Create or retrieve an existing vector store.
+        """
+        existing_stores = self.client.vector_stores.list()
+        for store in existing_stores.data:
+            if store.name == vector_store_name:
+                return store
+        return self.client.vector_stores.create(name=vector_store_name)
 
-        self.index = self._initialize_index()
-        self.vector_store = PineconeVectorStore(index=self.index, embedding=OpenAIEmbeddings(model="text-embedding-3-large"))
+    def get_vector_store_id(self) -> str:
+        """
+        Retrieve the Vector Store ID.
+        """
+        return self.vector_store.id
 
-    def _initialize_index(self):
-        existing_indexes = [i["name"] for i in self.pc.list_indexes()]
-        if self.index_name not in existing_indexes:
-            self.pc.create_index(
-                name=self.index_name,
-                dimension=self.dimension,
-                metric=self.metric,
-                spec=self.spec,
-            )
-            while not self.pc.describe_index(self.index_name).status["ready"]:
-                time.sleep(1)
-        return self.pc.Index(self.index_name)
+    def delete_vector_store_file(self, file_id: str):
+        """
+        Delete a file from the vector store using its ID.
+        """
+        deleted_file = self.client.vector_stores.files.delete(
+            vector_store_id=self.get_vector_store_id(),
+            file_id=file_id
+        )
+        print(deleted_file)
 
-    def add_documents(self, documents: List[Document]) -> List[str]:
-        ids = [str(uuid4()) for _ in documents]
-        self.vector_store.add_documents(documents=documents, ids=ids)
-        return ids
+    def create_vector_store_file(self, document_path: str) -> str:
+        """
+        Upload a file and insert it into the vector store.
 
-    def delete_documents(self, ids: List[str]):
-        self.vector_store.delete(ids=ids)
+        Args:
+            document_path (str): Path to the text file.
 
-    def similarity_search(self, query: str, k: int = 2, metadata_filter: Optional[dict] = None) -> List[Document]:
-        return self.vector_store.similarity_search(query, k=k, filter=metadata_filter)
+        Returns:
+            str: The ID of the inserted vector store file.
+        """
+        file_response = self.client.files.create(
+            file=open(document_path, "rb"),
+            purpose="assistants"
+        )
+        file_id = file_response.id
 
-    def similarity_search_with_score(self, query: str, k: int = 1, metadata_filter: Optional[dict] = None, score_threshold: float = 0.3):
-        results_with_score = self.vector_store.similarity_search_with_score(query, k=k, filter=metadata_filter)
-        # Filter out documents with a score below the threshold
-        filtered_results = [(doc, score) for doc, score in results_with_score if score >= score_threshold]
+        vector_store_file = self.client.vector_stores.files.create(
+            vector_store_id=self.get_vector_store_id(),
+            file_id=file_id
+        )
+        return vector_store_file.id
+
+    def list_vector_store_files(self):
+        """
+        List all files in the vector store and print their metadata.
+        """
+        vector_store_files = self.client.vector_stores.files.list(
+            vector_store_id=self.get_vector_store_id()
+        )
         
-        return filtered_results
+        return (vector_store_files)
 
+    def retrieve_vector_store_file_content(self, vector_store_id: str, file_id: str):
+        """
+        retrieve the content of a file stored in a vector store using OpenAI's API.
 
-    def create_document_from_text(self, text: str, metadata: Optional[dict] = None) -> Document:
-        return Document(page_content=text, metadata=metadata or {})
+        Args:
+            vector_store_id (str): The ID of the vector store.
+            file_id (str): The ID of the file inside the vector store.
+            save_path (str, optional): If provided, saves the file content to this path.
 
-    def create_documents_from_file(self, file_path: str, metadata: Optional[dict] = None) -> List[Document]:
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        return [Document(page_content=content, metadata=metadata or {"source": os.path.basename(file_path)})]
+        Returns:
+            str: The file content as a string (unless saved to disk).
+        """
+    
+        headers = {
+            "Authorization": f"Bearer {self.openai_api_key}"
+        }
 
+        url = f"https://api.openai.com/v1/vector_stores/{vector_store_id}/files/{file_id}/content"
+
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            return response.text
+        else:
+            return(response.status_code)
+    
 
 def main():
-    rag = RAGSystem(index_name="conv-ai")
-
-    # Perform similarity search
-    results = rag.similarity_search_with_score(
-        "How is the weather today?",
-        k=1,
-    )
+    rag = RAGSystem(vector_store_name="Restaurant Details")
+    vector_store_id = rag.get_vector_store_id()
+    print("VECTOR_STORE_ID:", vector_store_id)
+    # List files in the vector store
+    #print(rag.list_vector_store_files())
     
+    #print (rag.retrieve_vector_store_file_content(vector_store_id, "file-HUy48koFe77mGhaJ4yATit"))
+
 if __name__ == "__main__":
     main()

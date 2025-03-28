@@ -8,10 +8,13 @@ elevenlabs
 pyaudio
 pinecone-notebooks
 openai
+openai-agents
 requests
 aipolabs
 langgraph
 twilio
+openai-agents[voice]
+curses
 
 
 
