@@ -12,12 +12,18 @@ client = OpenAI()
 rag = rag.RAGSystem(vector_store_name="Restaurant Details")
 vector_store_id = rag.get_vector_store_id()
 
-@function_tool
-def end_tool():
-    return 0
+end_call_agent = Agent(
+    name = "end call agent",
+    instructions = (
+        "You are a courteous and professional assistant responsible for ending the conversation. "
+    ))
 
 @function_tool
 def human_in_the_loop():
+    return 0
+
+@function_tool
+def send_reservation_guidance(phone_number: str, booking_link: str) -> str:
     return 0
 
 reservation_guidance = Agent(
@@ -27,7 +33,11 @@ reservation_guidance = Agent(
         "Make reservation",
     ),
     model="gpt-4o-mini",
-)
+    tools = [send_reservation_guidance, end_call_agent.as_tool(
+    tool_name = "end_call",
+    tool_description = (
+        "End the call"
+    ))])
 
 query_answering_agent = Agent(
     name="Query",
@@ -39,34 +49,26 @@ query_answering_agent = Agent(
     tools=[ FileSearchTool(
             max_num_results=1,
             vector_store_ids=[vector_store_id],
-        ),],
-)
-
-RECOMMENDED_PROMPT_PREFIX = "# System context\nYou are part of a multi-agent system called the Agents SDK, designed to make agent coordination and execution easy. Agents uses two primary abstraction: **Agents** and **Handoffs**. An agent encompasses instructions and tools and can hand off a conversation to another agent when appropriate. Handoffs are achieved by calling a handoff function, generally named `transfer_to_<agent_name>`. Transfers between agents are handled seamlessly in the background; do not mention or draw attention to these transfers in your conversation with the user.\n"
+        ),end_call_agent.as_tool(
+     tool_name = "end_call",
+    tool_description = (
+        "End the call"
+    ))])
 
 agent = Agent(
     name="Intent Detector",
     instructions=prompt_with_handoff_instructions(
         """
-        You are a helpful, witty, and friendly AI agent interacting in a restaurant setting. Engage warmly and playfully, adopting a lively, conversational tone as if you were human. Detect the user's intent accurately without explicitly mentioning that you are handing off to another agent.
-        
-        Intents to detect:
-        
-        ** Query Answering **
-        
-        - User requests general information about the restaurant, menu details, pricing, special dishes, or FAQs.
-        
-        ** Reservation Guidance **
-        
-        - User wants to make, change, cancel, or inquire about reservations or table availability.
-        
-        Always maintain politeness, warmth, and a lively conversational style.
+        You are part of a multi-agent system called the Agents SDK, designed to make agent coordination and execution easy. Agents uses two primary abstraction: **Agents** and **Handoffs**. An agent encompasses instructions and tools and can hand off a conversation to another agent when appropriate. Handoffs are achieved by calling a handoff function, generally named `transfer_to_<agent_name>`. Transfers between agents are handled seamlessly in the background; do not mention or draw attention to these transfers in your conversation with the user.
         """,
     ),
     model="gpt-4o-mini",
-    handoffs=[query_answering_agent, reservation_guidance, end_tool, human_in_the_loop],
-    tools=[],
-)
+    handoffs=[query_answering_agent, reservation_guidance],
+    tools=[end_call_agent.as_tool(
+    tool_name = "end_call",
+    tool_description = (
+        "End the call"
+    ))])
 
 
 class MyWorkflow(VoiceWorkflowBase):
@@ -83,12 +85,6 @@ class MyWorkflow(VoiceWorkflowBase):
             "role": "user",
             "content": transcription,
         })
-
-        if self._secret_word in transcription.lower():
-            response = "You guessed the secret word!"
-            self._input_history.append({"role": "assistant", "content": response})
-            yield response
-            return
 
         # Run the agent with current input
         result = Runner.run_streamed(self._current_agent, self._input_history)
