@@ -3,7 +3,6 @@ from typing import Callable
 from agents import Agent, Runner, TResponseInputItem, function_tool, FileSearchTool
 from agents.extensions.handoff_prompt import prompt_with_handoff_instructions
 from agents.voice import VoiceWorkflowBase, VoiceWorkflowHelper
-import asyncio
 from dataclasses import dataclass
 from openai import OpenAI
 from agent_component import rag

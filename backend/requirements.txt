@@ -2,11 +2,8 @@ fastapi
 uvicorn
 pydantic
 python-dotenv
-langchain-community
-langchain-pinecone
 elevenlabs
 pyaudio
-pinecone-notebooks
 openai
 openai-agents
 requests
@@ -15,6 +12,7 @@ langgraph
 twilio
 openai-agents[voice]
 curses
+websockets
 
 
 
