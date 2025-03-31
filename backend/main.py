@@ -9,6 +9,7 @@ from fastapi.websockets import WebSocketDisconnect
 from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream
 from dotenv import load_dotenv
 import logging
+from aipolabs import ACI
 
 
 # Configure logging
@@ -20,22 +21,35 @@ load_dotenv()
 # Configuration
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY') # requires OpenAI Realtime API Access
 PORT = int(os.getenv('PORT', 5050))
-
+ACI_CLIENT = ACI(api_key=os.getenv("AIPOLABS_ACI_API_KEY"))
 
 SYSTEM_MESSAGE = (
-  "You are a helpful and bubbly AI assistant who answers any questions I ask"
+  f"You are a helpful and bubbly AI assistant who answers any questions I ask"
 )
 VOICE = 'alloy'
 LOG_EVENT_TYPES = [
-  'response.content.done', 'rate_limits.updated', 'response.done',
-  'input_audio_buffer.committed', 'input_audio_buffer.speech_stopped',
-  'input_audio_buffer.speech_started', 'response.create', 'session.created'
+    "You are a professional customer service agent. "
+    "Keep responses clear and concise."
+    "Focus on solving problems efficiently."
 ]
 SHOW_TIMING_MATH = False
 app = FastAPI()
 if not OPENAI_API_KEY:
   raise ValueError('Missing the OpenAI API key. Please set it in the .env file.')
 
+def get_aci_tool_definitions():
+    return {
+        "status": ACI_CLIENT.functions.get_definition("GOOGLE_CALENDAR__FREEBUSY_QUERY"),
+        "update": ACI_CLIENT.functions.get_definition("GOOGLE_CALENDAR__EVENTS_UPDATE"),
+        "reserve": ACI_CLIENT.functions.get_definition("GOOGLE_CALENDAR__EVENTS_INSERT"),
+        "delete": ACI_CLIENT.functions.get_definition("GOOGLE_CALENDAR__EVENTS_DELETE"),
+    }
+
+aci_tools = get_aci_tool_definitions()
+gc_status_tool = aci_tools["status"]
+gc_update_tool = aci_tools["update"]
+gc_reserve_tools = aci_tools["reserve"]
+gc_delete_tools = aci_tools["delete"]    
 
 @app.get("/", response_class=HTMLResponse)
 async def index_page():
@@ -194,7 +208,7 @@ async def send_initial_conversation_item(openai_ws):
             "content": [
                 {
                     "type": "input_text",
-                    "text": "Greet the user with 'Hello there! I am an AI voice assistant that will help you with any questions you may have. Please ask me anything you want to know.'"
+                    "text": "Hi, this is Jamie from Flatiron how can I help you today?"
                 }
             ]
         }
@@ -214,13 +228,15 @@ async def send_session_update(openai_ws):
           "voice": VOICE,
           "instructions": SYSTEM_MESSAGE,
           "modalities": ["text", "audio"],
-          "temperature": 0.8,
+          "temperature": 0.4,
+          "tools": [gc_status_tool, gc_reserve_tools, gc_update_tool, gc_delete_tools, {"type":"file_search", "vector_store_ids": [""], "max_num_results": 2}]
       }
     }
     print('Sending session update:', json.dumps(session_update))
     await openai_ws.send(json.dumps(session_update))
 
     await send_initial_conversation_item(openai_ws)
+  
 
 if __name__ == "__main__":
   import uvicorn
