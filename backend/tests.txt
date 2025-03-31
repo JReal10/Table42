@@ -1,0 +1,1 @@
+gc_status_tool, gc_reserve_tools, gc_update_tool, gc_delete_tools, {"type":"file_search", "vector_store_ids": [vector_store_id], "max_num_results": 2}
