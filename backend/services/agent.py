@@ -17,8 +17,7 @@ SAMPLE_RATE = 24000
 FORMAT = np.int16
 CHANNELS = 1
 
-
-class TerminalVoiceApp:
+class InitializeAgent:
     def __init__(self):
         self.should_send_audio = asyncio.Event()
         self.audio_input = StreamedAudioInput()
@@ -37,9 +36,12 @@ class TerminalVoiceApp:
     def _on_transcription(self, transcription: str) -> None:
         print(f"[Transcription] {transcription}")
 
-
     async def start(self):
         print("🎤 Starting voice agent terminal app...")
+        # Set the event to true immediately so audio starts flowing
+        self.should_send_audio.set()
+        print("[Status] 🔴 Started recording automatically.")
+        
         await asyncio.gather(
             self.run_pipeline(),
             self.send_mic_audio(),
@@ -100,21 +102,7 @@ class TerminalVoiceApp:
             stream.close()
 
     async def input_loop(self):
-        loop = asyncio.get_event_loop()
-        while True:
-            command = await loop.run_in_executor(None, input, "\n[Command] Press 'k' to toggle recording, 'q' to quit: ")
-            if command.lower() == "k":
-                if self.should_send_audio.is_set():
-                    self.should_send_audio.clear()
-                    print("[Status] 🎙️ Stopped recording.")
-                else:
-                    self.should_send_audio.set()
-                    print("[Status] 🔴 Started recording.")
-            elif command.lower() == "q":
-                print("[Exit] Quitting...")
-                self.should_send_audio.clear()
-                self.audio_input.close()
-                break
+        asyncio.get_event_loop()
 
 if __name__ == "__main__":
-    asyncio.run(TerminalVoiceApp().start())
+    asyncio.run(InitializeAgent().start())

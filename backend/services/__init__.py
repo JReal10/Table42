@@ -1,1 +1,1 @@
-from .agent import initialize_conversation
+from .agent import InitializeAgent
