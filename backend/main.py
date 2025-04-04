@@ -16,7 +16,11 @@ from openai import OpenAI
 import json
 
 from ai_agent import create_assistant, get_or_create_thread
+<<<<<<< HEAD
 from helper import load_access_token, send_instagram_message, send_facebook_message
+=======
+from helper import load_access_token, send_instagram_message
+>>>>>>> a2e1a080bb2a7a9a8c9aad2041d6052da54855cb
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -39,8 +43,11 @@ OPENAI_CLIENT = OpenAI(api_key= OPENAI_API_KEY)
 
 assistant = create_assistant()
 assistant_id = assistant.id
+<<<<<<< HEAD
 
 # Dictionary to store user threads
+=======
+>>>>>>> a2e1a080bb2a7a9a8c9aad2041d6052da54855cb
 
 SYSTEM_MESSAGE = (
   "You are a professional customer service agent for Flat Iron Restaurant's Soho location. Keep responses clear and concise, focusing on solving problems efficiently. Flat Iron Soho's details are as follows: Address: 17 Beak Street, London W1F 9RW. Opening Hours: Sunday to Tuesday: 12:00 PM – 10:00 PM; Wednesday to Thursday: 12:00 PM – 11:00 PM; Friday to Saturday: 12:00 PM – 11:30 PM. Menu: Mains include Flat Iron Steak, Spiced Lamb, Charcoal Chicken; Sides include Creamed Spinach, Truffle Fries, Roast Aubergine; Desserts include Salted Caramel Mousse, Bourbon Vanilla Ice Cream. Dietary options: Vegetarian: Creamed Spinach, Roast Aubergine; Gluten-Free: Flat Iron Steak, Spiced Lamb; Vegan: Roast Aubergine."
@@ -294,6 +301,7 @@ def privacy_policy():
         privacy_policy_html = f.read()
 
     return privacy_policy_html
+<<<<<<< HEAD
     
 @app.get("/fb_webhook")
 async def webhook(request: Request):
@@ -386,11 +394,38 @@ async def handle_messages(request: Request):
             user_access_token = load_access_token()
 
             # Send message to OpenAI
+=======
+
+@app.api_route("/webhook", methods=["GET"])
+async def webhook(request: Request):
+    return int(request.query_params.get("hub.challenge"))
+
+@app.api_route("/webhook", methods=["POST"])
+async def handle_messages(request: Request):
+    data = await request.json()
+    for entry in data.get("entry", []):
+        for messaging in entry.get("messaging", []):
+            sender_id = messaging["sender"]["id"]
+
+            # Quick fix: Check if 'message' and 'text' keys exist
+            message = messaging.get("message")
+            if not message or "text" not in message:
+                print("Non-text message or unsupported event:", messaging)
+                continue
+
+            message_text = message["text"]
+            thread_id = get_or_create_thread(sender_id)
+
+            # Optional: send typing indicator
+            user_access_token = load_access_token()
+
+>>>>>>> a2e1a080bb2a7a9a8c9aad2041d6052da54855cb
             OPENAI_CLIENT.beta.threads.messages.create(
                 thread_id=thread_id,
                 role="user",
                 content=message_text
             )
+<<<<<<< HEAD
             
             # Start thread run to process the assistant's response
             run = OPENAI_CLIENT.beta.threads.runs.create_and_poll(
@@ -416,6 +451,24 @@ async def handle_messages(request: Request):
             print(f"\n{assistant_response}\n")
             
             # Send the assistant's response back to the user on Instagram
+=======
+            run = OPENAI_CLIENT.beta.threads.runs.create(
+                thread_id=thread_id,
+                assistant_id=assistant_id
+            )
+
+            while True:
+                status = OPENAI_CLIENT.beta.threads.runs.retrieve(run.id, thread_id=thread_id)
+                if status.status == "completed":
+                    break
+
+            messages = OPENAI_CLIENT.beta.threads.messages.list(thread_id=thread_id)
+            assistant_response = next(
+                (msg.content[0].text.value for msg in reversed(messages.data) if msg.role == "assistant"),
+                "Sorry, I didn't get that."
+            )
+
+>>>>>>> a2e1a080bb2a7a9a8c9aad2041d6052da54855cb
             send_instagram_message(user_access_token, sender_id, assistant_response)
 
     return {"status": "ok"}

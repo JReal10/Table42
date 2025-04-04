@@ -23,7 +23,10 @@ def send_instagram_message(user_access_token, recipient_id, message_text):
         "recipient": {"id": recipient_id},
         "message": {"text": message_text}
     }
+<<<<<<< HEAD
     
+=======
+>>>>>>> a2e1a080bb2a7a9a8c9aad2041d6052da54855cb
     response = requests.post(INSTAGRAM_API_URL, headers=headers, json=json_body)
     data = response.json()
     print("\n📨 Message Send Response:")
