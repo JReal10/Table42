@@ -16,7 +16,7 @@ from openai import OpenAI
 import json
 
 from ai_agent import create_assistant, get_or_create_thread
-from helper import load_access_token, send_instagram_message
+from helper import load_access_token, send_instagram_message, send_facebook_message
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -39,6 +39,8 @@ OPENAI_CLIENT = OpenAI(api_key= OPENAI_API_KEY)
 
 assistant = create_assistant()
 assistant_id = assistant.id
+
+# Dictionary to store user threads
 
 SYSTEM_MESSAGE = (
   "You are a professional customer service agent for Flat Iron Restaurant's Soho location. Keep responses clear and concise, focusing on solving problems efficiently. Flat Iron Soho's details are as follows: Address: 17 Beak Street, London W1F 9RW. Opening Hours: Sunday to Tuesday: 12:00 PM – 10:00 PM; Wednesday to Thursday: 12:00 PM – 11:00 PM; Friday to Saturday: 12:00 PM – 11:30 PM. Menu: Mains include Flat Iron Steak, Spiced Lamb, Charcoal Chicken; Sides include Creamed Spinach, Truffle Fries, Roast Aubergine; Desserts include Salted Caramel Mousse, Bourbon Vanilla Ice Cream. Dietary options: Vegetarian: Creamed Spinach, Roast Aubergine; Gluten-Free: Flat Iron Steak, Spiced Lamb; Vegan: Roast Aubergine."
@@ -292,51 +294,128 @@ def privacy_policy():
         privacy_policy_html = f.read()
 
     return privacy_policy_html
-
-@app.api_route("/webhook", methods=["GET"])
+    
+@app.get("/fb_webhook")
 async def webhook(request: Request):
     return int(request.query_params.get("hub.challenge"))
 
-@app.api_route("/webhook", methods=["POST"])
-async def handle_messages(request: Request):
+@app.post("/fb_webhook")
+async def webhook(request: Request):
     data = await request.json()
+    print(f"\n {data} \n")
+    
     for entry in data.get("entry", []):
         for messaging in entry.get("messaging", []):
             sender_id = messaging["sender"]["id"]
+            print(f"\n {sender_id} \n")
 
-            # Quick fix: Check if 'message' and 'text' keys exist
+            # Check if message exists
             message = messaging.get("message")
-            if not message or "text" not in message:
-                print("Non-text message or unsupported event:", messaging)
-                continue
 
+            # Process actual user message
             message_text = message["text"]
             thread_id = get_or_create_thread(sender_id)
+            print(f"\n{thread_id}\n")
 
-            # Optional: send typing indicator
-            user_access_token = load_access_token()
-
+            # Send message to OpenAI
             OPENAI_CLIENT.beta.threads.messages.create(
                 thread_id=thread_id,
                 role="user",
                 content=message_text
             )
-            run = OPENAI_CLIENT.beta.threads.runs.create(
+            
+            # Start thread run to process the assistant's response
+            run = OPENAI_CLIENT.beta.threads.runs.create_and_poll(
                 thread_id=thread_id,
-                assistant_id=assistant_id
+                assistant_id=assistant_id,
+                instructions="Please address the user as Jane Doe. The user has a premium account."
             )
 
-            while True:
-                status = OPENAI_CLIENT.beta.threads.runs.retrieve(run.id, thread_id=thread_id)
-                if status.status == "completed":
-                    break
+            if run.status == 'completed': 
+                # Fetch the assistant's response
+                messages = OPENAI_CLIENT.beta.threads.messages.list(
+                    thread_id=thread_id
+                )
+                
+                assistant_response = next(
+                    (msg.content[0].text.value for msg in messages.data if msg.role == "assistant"),
+                    "Sorry, I didn't get that."
+                )
+            else:
+                print(f"Run status: {run.status}")
+                assistant_response = "Sorry, I'm still processing your request."
 
-            messages = OPENAI_CLIENT.beta.threads.messages.list(thread_id=thread_id)
-            assistant_response = next(
-                (msg.content[0].text.value for msg in reversed(messages.data) if msg.role == "assistant"),
-                "Sorry, I didn't get that."
+            print(f"\n{assistant_response}\n")
+            
+            # Send the assistant's response back to the user on Instagram
+            send_facebook_message(sender_id, assistant_response)
+
+    return {"status": "ok"}
+
+
+@app.get("/webhook")
+async def webhook(request: Request):
+    return int(request.query_params.get("hub.challenge"))
+    
+@app.post("/webhook")
+async def handle_messages(request: Request):
+    data = await request.json()
+    print(f"\n {data} \n")
+    
+    for entry in data.get("entry", []):
+        for messaging in entry.get("messaging", []):
+            sender_id = messaging["sender"]["id"]
+            print(f"\n {sender_id} \n")
+
+            # Check if message exists
+            message = messaging.get("message")
+            if not message:
+                print("Unsupported event received, skipping.")
+                continue
+
+            # **Ignore echo messages** (Messages sent by our bot)
+            if message.get("is_echo"):
+                print("Echo message detected, ignoring.")
+                continue
+
+            # Process actual user message
+            message_text = message["text"]
+            thread_id = get_or_create_thread(sender_id)
+            print(f"\n{thread_id}\n")
+
+            user_access_token = load_access_token()
+
+            # Send message to OpenAI
+            OPENAI_CLIENT.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=message_text
+            )
+            
+            # Start thread run to process the assistant's response
+            run = OPENAI_CLIENT.beta.threads.runs.create_and_poll(
+                thread_id=thread_id,
+                assistant_id=assistant_id,
+                instructions="Please address the user as Jane Doe. The user has a premium account."
             )
 
+            if run.status == 'completed': 
+                # Fetch the assistant's response
+                messages = OPENAI_CLIENT.beta.threads.messages.list(
+                    thread_id=thread_id
+                )
+                
+                assistant_response = next(
+                    (msg.content[0].text.value for msg in messages.data if msg.role == "assistant"),
+                    "Sorry, I didn't get that."
+                )
+            else:
+                print(f"Run status: {run.status}")
+                assistant_response = "Sorry, I'm still processing your request."
+
+            print(f"\n{assistant_response}\n")
+            
+            # Send the assistant's response back to the user on Instagram
             send_instagram_message(user_access_token, sender_id, assistant_response)
 
     return {"status": "ok"}

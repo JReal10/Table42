@@ -1,16 +1,13 @@
 import os
 from openai import OpenAI
 
+user_threads = {}
+
 # Retrieve the API key from the environment
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-if not OPENAI_API_KEY:
-    raise EnvironmentError("Please set the OPENAI_API_KEY environment variable.")
 
 # Initialize the OpenAI client
 OPENAI_CLIENT = OpenAI(api_key=OPENAI_API_KEY)
-
-# Dictionary to store user threads
-user_threads = {}
 
 def create_assistant():
     """
@@ -20,9 +17,9 @@ def create_assistant():
         assistant: The created assistant object.
     """
     assistant = OPENAI_CLIENT.beta.assistants.create(
-        name="Math tutor",
+        name="Restaurant Customer Service",
         instructions="You are a personal math tutor. Answer questions briefly, in a sentence or less.",
-        model="gpt-4o"
+        model="gpt-4o-mini"
     )
     return assistant
 
