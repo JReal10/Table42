@@ -1,12 +1,11 @@
 import os
 from openai import OpenAI
 from vector_database import RAGSystem
+from tools import get_calendar_functions
 
 user_threads = {}
 
-RAGSystem
-
-rag = RAGSystem(vector_store_name="Restaurant Details")
+rag = RAGSystem(vector_store_name="flatiron_restaurant")
 vector_store_id = rag.get_vector_store_id()
 print("VECTOR_STORE_ID:", vector_store_id)
 
@@ -15,6 +14,7 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # Initialize the OpenAI client
 OPENAI_CLIENT = OpenAI(api_key=OPENAI_API_KEY)
+get_calendar_functions = get_calendar_functions()
 
 def create_assistant():
     """
@@ -25,6 +25,13 @@ def create_assistant():
     """
     restaurant_name = "Flatiron Soho"
     user_name = "Jamie"
+    
+    tools = [
+        {"type": "file_search"},
+        get_calendar_functions["reserve_event"],
+        get_calendar_functions["update_event"],
+        get_calendar_functions["delete_event"]
+    ]
     
     assistant = OPENAI_CLIENT.beta.assistants.create(
     name="Restaurant Concierge",
@@ -70,7 +77,7 @@ def create_assistant():
     
     model="gpt-4o-mini",
     temperature= 0.4,
-    tools = [{"type": "file_search"}],
+    tools = tools,
     tool_resources = {
         "file_search":{
             "vector_store_ids": [vector_store_id]

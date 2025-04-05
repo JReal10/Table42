@@ -18,6 +18,14 @@ import json
 from ai_agent import create_assistant, get_or_create_thread
 from helper import load_access_token, send_instagram_message, send_facebook_message
 
+from aipolabs import ACI
+
+aci = ACI()
+
+LINKED_ACCOUNT_OWNER_ID = os.getenv("LINKED_ACCOUNT_OWNER_ID", "")
+if not LINKED_ACCOUNT_OWNER_ID:
+    raise ValueError("LINKED_ACCOUNT_OWNER_ID is not set")
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -40,6 +48,7 @@ OPENAI_CLIENT = OpenAI(api_key= OPENAI_API_KEY)
 SYSTEM_MESSAGE = (
   "You are a professional customer service agent for Flat Iron Restaurant's Soho location. Keep responses clear and concise, focusing on solving problems efficiently. Flat Iron Soho's details are as follows: Address: 17 Beak Street, London W1F 9RW. Opening Hours: Sunday to Tuesday: 12:00 PM – 10:00 PM; Wednesday to Thursday: 12:00 PM – 11:00 PM; Friday to Saturday: 12:00 PM – 11:30 PM. Menu: Mains include Flat Iron Steak, Spiced Lamb, Charcoal Chicken; Sides include Creamed Spinach, Truffle Fries, Roast Aubergine; Desserts include Salted Caramel Mousse, Bourbon Vanilla Ice Cream. Dietary options: Vegetarian: Creamed Spinach, Roast Aubergine; Gluten-Free: Flat Iron Steak, Spiced Lamb; Vegan: Roast Aubergine."
 )
+
 VOICE = 'alloy'
 LOG_EVENT_TYPES = [
   'response.content.done', 'rate_limits.updated', 'response.done',
@@ -299,7 +308,6 @@ async def webhook(request: Request):
 @app.post("/fb_webhook")
 async def webhook(request: Request):
     data = await request.json()
-    print(f"\n {data} \n")
     
     for entry in data.get("entry", []):
         for messaging in entry.get("messaging", []):
@@ -320,175 +328,160 @@ async def webhook(request: Request):
                 content=message_text
             )
             
-            # Start thread run to process the assistant's response
             run = OPENAI_CLIENT.beta.threads.runs.create_and_poll(
                 thread_id=thread_id,
                 assistant_id=assistant.id,
             )
 
-            if run.status == 'completed': 
-                # Fetch the assistant's response
+            if run.status == 'completed':
                 messages = OPENAI_CLIENT.beta.threads.messages.list(
                     thread_id=thread_id
                 )
-                
+                print (run.status)
                 assistant_response = next(
                     (msg.content[0].text.value for msg in messages.data if msg.role == "assistant"),
                     "Sorry, I didn't get that."
                 )
-            else:
-                print(f"Run status: {run.status}")
-                assistant_response = "Sorry, I'm still processing your request."
-
-            print(f"\n{assistant_response}\n")
-            
-            # Send the assistant's response back to the user on Instagram
-            send_facebook_message(sender_id, assistant_response)
-
-    return {"status": "ok"}
-
-
-@app.get("/webhook")
-async def webhook(request: Request):
-    return int(request.query_params.get("hub.challenge"))
-    
-@app.post("/webhook")
-async def handle_messages(request: Request):
-    data = await request.json()
-    print(f"\n {data} \n")
-    
-    for entry in data.get("entry", []):
-        for messaging in entry.get("messaging", []):
-            sender_id = messaging["sender"]["id"]
-            print(f"\n {sender_id} \n")
-
-            # Check if message exists
-            message = messaging.get("message")
-            if not message:
-                print("Unsupported event received, skipping.")
-                continue
-
-            # **Ignore echo messages** (Messages sent by our bot)
-            if message.get("is_echo"):
-                print("Echo message detected, ignoring.")
-                continue
-
-            # Process actual user message
-            message_text = message["text"]
-            thread_id = get_or_create_thread(sender_id)
-            
-            # Send message to OpenAI
-            OPENAI_CLIENT.beta.threads.messages.create(
-                thread_id=thread_id,
-                role="user",
-                content=message_text
-            )
-            
-            # Start thread run to process the assistant's response
-            run = OPENAI_CLIENT.beta.threads.runs.create_and_poll(
-                thread_id=thread_id,
-                assistant_id=assistant.id,
-            )
-
-            if run.status == 'completed': 
-                # Fetch the assistant's response
-                messages = OPENAI_CLIENT.beta.threads.messages.list(
-                    thread_id=thread_id
-                )
+                print(f"\n{assistant_response}\n")
+                send_facebook_message(sender_id, assistant_response)
                 
-                assistant_response = next(
-                    (msg.content[0].text.value for msg in messages.data if msg.role == "assistant"),
-                    "Sorry, I didn't get that."
-                )
-            else:
-                print(f"Run status: {run.status}")
-                assistant_response = "Sorry, I'm still processing your request."
-
-            print(f"\n{assistant_response}\n")
-            
-            # Send the assistant's response back to the user on Instagram
-            send_facebook_message(sender_id, assistant_response)
-
-    return {"status": "ok"}
-
-            # Send message to OpenAI
-            
+            elif run.status == 'requires_action':
+                tool_outputs = []
+                for tool in run.required_action.submit_tool_outputs.tool_calls:
+                    if tool.function.name == "GOOGLE_CALENDAR__EVENTS_INSERT":
+                        try:
+                            arguments = json.loads(tool.function.arguments)
+                            aci_result = aci.functions.execute(
+                                tool.function.name,
+                                arguments,
+                                linked_account_owner_id = LINKED_ACCOUNT_OWNER_ID
+                            )
+                            tool_outputs.append({
+                                "tool_call_id": tool.id,
+                                "output": aci_result.model_dump_json()
+                            })
+                        except Exception as e:
+                            print(f"Error executing ACI Google Calendar: {e}")
+                            tool_outputs.append({
+                                "tool_call_id": tool.id,
+                                "output": f"Error{e}"
+                            })
+                    
+                if tool_outputs:
+                    try:
+                        run = OPENAI_CLIENT.beta.threads.runs.submit_tool_outputs_and_poll(thread_id=thread_id,
+                        run_id = run.id,
+                        tool_outputs= tool_outputs)
+                        
+                        print("Tool outputs submitted successfully.")
+                    except Exception as e:
+                        print("Failed to submit tool outputs:", e)
+                else:
+                    print("No tool outputs to submit")
+                    
+                if run.status == "completed":
+                    messages = OPENAI_CLIENT.beta.threads.messages.list(thread_id=thread_id)
+                    assistant_response = next(
+                        (msg.content[0].text.value for msg in messages.data if msg.role == "assistant"),
+                        "Sorry, I didn't get that."
+                    )
+                    print(f"\n{assistant_response}\n")
+                    send_facebook_message(sender_id, assistant_response)
+                else:
+                    print(run.status)
+            else: 
+                print(run.status)
+                                           
 @app.api_route("/webhook", methods=["GET"])
 async def webhook(request: Request):
     return int(request.query_params.get("hub.challenge"))
 
 @app.api_route("/webhook", methods=["POST"])
-async def handle_messages(request: Request):
+async def webhook(request: Request):
     data = await request.json()
+    
     for entry in data.get("entry", []):
         for messaging in entry.get("messaging", []):
             sender_id = messaging["sender"]["id"]
+            print(f"\n {sender_id} \n")
 
-            # Quick fix: Check if 'message' and 'text' keys exist
+            # Check if message exists
             message = messaging.get("message")
-            if not message or "text" not in message:
-                print("Non-text message or unsupported event:", messaging)
-                continue
 
+            # Process actual user message
             message_text = message["text"]
             thread_id = get_or_create_thread(sender_id)
-
-            # Optional: send typing indicator
-            user_access_token = load_access_token()
-
+            
+            # Send message to OpenAI
             OPENAI_CLIENT.beta.threads.messages.create(
                 thread_id=thread_id,
                 role="user",
                 content=message_text
             )
             
-            assistant = create_assistant()
-
-            # Start thread run to process the assistant's response
             run = OPENAI_CLIENT.beta.threads.runs.create_and_poll(
                 thread_id=thread_id,
                 assistant_id=assistant.id,
-                instructions="Address the user as Jamie"
             )
 
-            if run.status == 'completed': 
-                # Fetch the assistant's response
+            if run.status == 'completed':
                 messages = OPENAI_CLIENT.beta.threads.messages.list(
                     thread_id=thread_id
                 )
-                
+                print (run.status)
                 assistant_response = next(
                     (msg.content[0].text.value for msg in messages.data if msg.role == "assistant"),
                     "Sorry, I didn't get that."
                 )
-            else:
-                print(f"Run status: {run.status}")
-                assistant_response = "Sorry, I'm still processing your request."
-
-            print(f"\n{assistant_response}\n")
-            
-            # Send the assistant's response back to the user on Instagram
-            run = OPENAI_CLIENT.beta.threads.runs.create(
-                thread_id=thread_id,
-                assistant_id=assistant.id
-            )
-
-            while True:
-                status = OPENAI_CLIENT.beta.threads.runs.retrieve(run.id, thread_id=thread_id)
-                if status.status == "completed":
-                    break
-
-            messages = OPENAI_CLIENT.beta.threads.messages.list(thread_id=thread_id)
-            assistant_response = next(
-                (msg.content[0].text.value for msg in reversed(messages.data) if msg.role == "assistant"),
-                "Sorry, I didn't get that."
-            )
-            
-            print(f"{messages}\n")
-
-            send_instagram_message(user_access_token, sender_id, assistant_response)
-
-    return {"status": "ok"}
+                print(f"\n{assistant_response}\n")
+                send_instagram_message(sender_id, assistant_response)
+                
+            elif run.status == 'requires_action':
+                tool_outputs = []
+                for tool in run.required_action.submit_tool_outputs.tool_calls:
+                    if tool.function.name == "GOOGLE_CALENDAR__EVENTS_INSERT":
+                        try:
+                            arguments = json.loads(tool.function.arguments)
+                            aci_result = aci.functions.execute(
+                                tool.function.name,
+                                arguments,
+                                linked_account_owner_id = LINKED_ACCOUNT_OWNER_ID
+                            )
+                            tool_outputs.append({
+                                "tool_call_id": tool.id,
+                                "output": aci_result.model_dump_json()
+                            })
+                        except Exception as e:
+                            print(f"Error executing ACI Google Calendar: {e}")
+                            tool_outputs.append({
+                                "tool_call_id": tool.id,
+                                "output": f"Error{e}"
+                            })
+                    
+                if tool_outputs:
+                    try:
+                        run = OPENAI_CLIENT.beta.threads.runs.submit_tool_outputs_and_poll(thread_id=thread_id,
+                        run_id = run.id,
+                        tool_outputs= tool_outputs)
+                        
+                        print("Tool outputs submitted successfully.")
+                    except Exception as e:
+                        print("Failed to submit tool outputs:", e)
+                else:
+                    print("No tool outputs to submit")
+                    
+                if run.status == "completed":
+                    messages = OPENAI_CLIENT.beta.threads.messages.list(thread_id=thread_id)
+                    assistant_response = next(
+                        (msg.content[0].text.value for msg in messages.data if msg.role == "assistant"),
+                        "Sorry, I didn't get that."
+                    )
+                    print(f"\n{assistant_response}\n")
+                    send_instagram_message(sender_id, assistant_response)
+                else:
+                    print(run.status)
+            else: 
+                print(run.status)
 
 
 if __name__ == "__main__":

@@ -101,13 +101,18 @@ class RAGSystem:
     
 
 def main():
-    rag = RAGSystem(vector_store_name="Restaurant Details")
+    rag = RAGSystem(vector_store_name="flatiron_restaurant")
+
     vector_store_id = rag.get_vector_store_id()
     print("VECTOR_STORE_ID:", vector_store_id)
-    # List files in the vector store
-    #print(rag.list_vector_store_files())
-    
-    #print (rag.retrieve_vector_store_file_content(vector_store_id, "file-HUy48koFe77mGhaJ4yATit"))
+
+    # Upload and insert the file into the vector store
+    document_path = "flatiron_restaurant.txt"  # Make sure this file exists in the same directory
+    try:
+        file_id = rag.create_vector_store_file(document_path)
+        print("FILE_ID:", file_id)
+    except FileNotFoundError:
+        print(f"❌ File '{document_path}' not found. Please check the path.")
 
 if __name__ == "__main__":
     main()
