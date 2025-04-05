@@ -43,11 +43,6 @@ OPENAI_CLIENT = OpenAI(api_key= OPENAI_API_KEY)
 
 assistant = create_assistant()
 assistant_id = assistant.id
-<<<<<<< HEAD
-
-# Dictionary to store user threads
-=======
->>>>>>> a2e1a080bb2a7a9a8c9aad2041d6052da54855cb
 
 SYSTEM_MESSAGE = (
   "You are a professional customer service agent for Flat Iron Restaurant's Soho location. Keep responses clear and concise, focusing on solving problems efficiently. Flat Iron Soho's details are as follows: Address: 17 Beak Street, London W1F 9RW. Opening Hours: Sunday to Tuesday: 12:00 PM – 10:00 PM; Wednesday to Thursday: 12:00 PM – 11:00 PM; Friday to Saturday: 12:00 PM – 11:30 PM. Menu: Mains include Flat Iron Steak, Spiced Lamb, Charcoal Chicken; Sides include Creamed Spinach, Truffle Fries, Roast Aubergine; Desserts include Salted Caramel Mousse, Bourbon Vanilla Ice Cream. Dietary options: Vegetarian: Creamed Spinach, Roast Aubergine; Gluten-Free: Flat Iron Steak, Spiced Lamb; Vegan: Roast Aubergine."
