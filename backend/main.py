@@ -26,10 +26,18 @@ LINKED_ACCOUNT_OWNER_ID = os.getenv("LINKED_ACCOUNT_OWNER_ID", "")
 if not LINKED_ACCOUNT_OWNER_ID:
     raise ValueError("LINKED_ACCOUNT_OWNER_ID is not set")
 
+ACI_CLIENT = ACI(api_key=os.getenv("AIPOLABS_ACI_API_KEY"))
+
+UPDATE = ACI_CLIENT.functions.get_definition("GOOGLE_CALENDAR__EVENTS_UPDATE")
+RESERVE = ACI_CLIENT.functions.get_definition("GOOGLE_CALENDAR__EVENTS_INSERT")
+DELETE = ACI_CLIENT.functions.get_definition("GOOGLE_CALENDAR__EVENTS_DELETE")
+    
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+user_access_token_ig = load_access_token()
 
 load_dotenv()
 # Configuration
@@ -47,6 +55,8 @@ OPENAI_CLIENT = OpenAI(api_key= OPENAI_API_KEY)
 
 SYSTEM_MESSAGE = (
   "You are a professional customer service agent for Flat Iron Restaurant's Soho location. Keep responses clear and concise, focusing on solving problems efficiently. Flat Iron Soho's details are as follows: Address: 17 Beak Street, London W1F 9RW. Opening Hours: Sunday to Tuesday: 12:00 PM – 10:00 PM; Wednesday to Thursday: 12:00 PM – 11:00 PM; Friday to Saturday: 12:00 PM – 11:30 PM. Menu: Mains include Flat Iron Steak, Spiced Lamb, Charcoal Chicken; Sides include Creamed Spinach, Truffle Fries, Roast Aubergine; Desserts include Salted Caramel Mousse, Bourbon Vanilla Ice Cream. Dietary options: Vegetarian: Creamed Spinach, Roast Aubergine; Gluten-Free: Flat Iron Steak, Spiced Lamb; Vegan: Roast Aubergine."
+  
+  "Only End the call when you answered user's requests.To end a call say something under 10s, and append'GOODBYE();' at the end of your response. if what you say is longer than 10s, the call will end before you finish so keep it short! "
 )
 
 VOICE = 'alloy'
@@ -61,13 +71,6 @@ if not OPENAI_API_KEY:
   raise ValueError('Missing the OpenAI API key. Please set it in the .env file.') 
 
 assistant = create_assistant()
-
-def end_twilio_call():
-    """Ends an active Twilio call."""
-    call =TWILIO_CLIENT.calls(account_sid).update(status='completed')
-    
-    return call
-
 
 @app.get("/", response_class=HTMLResponse)
 async def index_page():
@@ -85,7 +88,6 @@ async def handle_incoming_call(request: Request):
     logger.info("Successfully created the TwiML response")
     return HTMLResponse(content=str(response), media_type="application/xml")
 
-
 @app.websocket("/media-stream")
 async def handle_media_stream(websocket: WebSocket):
     """Handle WebSocket connections between Twilio and OpenAI."""
@@ -93,13 +95,13 @@ async def handle_media_stream(websocket: WebSocket):
     await websocket.accept()
 
     async with websockets.connect(
-        'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01',
+        'wss://api.openai.com/v1/realtime?model=gpt-4o-mini-realtime-preview-2024-12-17',
         extra_headers={
             "Authorization": f"Bearer {OPENAI_API_KEY}",
             "OpenAI-Beta": "realtime=v1"
         }
     ) as openai_ws:
-        await send_session_update(openai_ws)
+        await initialize_session(openai_ws)
 
         # Connection specific state
         stream_sid = None
@@ -107,7 +109,7 @@ async def handle_media_stream(websocket: WebSocket):
         last_assistant_item = None
         mark_queue = []
         response_start_timestamp_twilio = None
-
+        
         async def receive_from_twilio():
             """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
             nonlocal stream_sid, latest_media_timestamp
@@ -130,6 +132,12 @@ async def handle_media_stream(websocket: WebSocket):
                     elif data['event'] == 'mark':
                         if mark_queue:
                             mark_queue.pop(0)
+                    elif data['event'] == 'stop':
+                        print(f"Call ended, stream {stream_sid} stopped")
+                        if openai_ws.open:
+                            await openai_ws.close()
+                        await websocket.close()
+                        return
             except WebSocketDisconnect:
                 print("Client disconnected.")
                 if openai_ws.open:
@@ -142,8 +150,40 @@ async def handle_media_stream(websocket: WebSocket):
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
                     if response['type'] in LOG_EVENT_TYPES:
-                        print(f"\nReceived event: {response['type']}\n", response)
+                        print(f"Received event: {response['type']}", response)
 
+                     #first check if response['type'] == 'response.done' and response['response']['output'] is not None:
+                        if response['type'] == 'response.done':
+                            #print("\n\n\n @Received response.done!!!")
+                            if response['response'] is not None:
+                                print(f"Received event: {response['type']}", response)
+                                response_object = response['response']
+                                print(f"\n\n@response_object: {response_object}")
+                                if not response_object['output'] == []:
+                                    print(f"\n\n@response_object['output']: {response_object['output']}")
+                                    output = response_object['output'][0]
+                                    print(f"\n\n@output: {output}")
+            
+                                    if output['role'] == 'assistant':
+                                        #print(f"\n\n\n @Received assistant response!!!")
+
+                                        #check if output['content'] is not None:
+                                        if output['content'] is not None:
+                                            content = output['content'][0]
+                                            #print(f"\n\n@content: {content}")
+                                            #check if content[`transcript`] is not None:
+                                            if content['transcript'] is not None:
+                                                transcript = content['transcript']
+                                                #(f"\n\n@transcript: {transcript}")
+
+                                                #check if transcript ends with '@END_TWILIO_PHONECALL();':
+                                                if transcript.endswith('GOODBYE();'):
+                                                    print(f"\n\n\n @Received END_TWILIO_PHONECALL response!!!")
+                                                    # Wait for a short duration to ensure all audio is sent before ending the call
+                                                    await asyncio.sleep(10)
+                                                    await websocket.close()
+                                                    return
+                    
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
                         audio_payload = base64.b64encode(base64.b64decode(response['delta'])).decode('utf-8')
                         audio_delta = {
@@ -165,15 +205,6 @@ async def handle_media_stream(websocket: WebSocket):
                             last_assistant_item = response['item_id']
 
                         await send_mark(websocket, stream_sid)
-                        
-                    # Detect function call output events
-                    if (response.get("type") == "conversation.item.create" and
-                        response.get("item", {}).get("type") == "function_call_output"):
-                        print("\nFunction call output received:\n", response)
-                        # Optionally process the function call output (e.g., parse arguments, execute locally, etc.)
-                        # Then trigger a follow-up event to prompt the AI to continue
-                        await openai_ws.send(json.dumps({"type": "response.create"}))
-                        print("Triggered response.create after function call output.")
 
                     # Trigger an interruption. Your use case might work better using `input_audio_buffer.speech_stopped`, or combining the two.
                     if response.get('type') == 'input_audio_buffer.speech_started':
@@ -181,11 +212,6 @@ async def handle_media_stream(websocket: WebSocket):
                         if last_assistant_item:
                             print(f"Interrupting response with id: {last_assistant_item}")
                             await handle_speech_started_event()
-                            
-                    if response.get("type") == "error":
-                        print(f"\n\n>>> Received error from OpenAI: {response}\n\n")
-                        assert False, "Received error from OpenAI"
-                        
             except Exception as e:
                 print(f"Error in send_to_twilio: {e}")
 
@@ -241,7 +267,7 @@ async def send_initial_conversation_item(openai_ws):
             "content": [
                 {
                     "type": "input_text",
-                    "text": "Greet the user -> 'Hi this is Sophie from Flatiron, how can I help you today?'"
+                    "text": "Greet the user with 'Hello there! How can I help you?'"
                 }
             ]
         }
@@ -249,49 +275,28 @@ async def send_initial_conversation_item(openai_ws):
     await openai_ws.send(json.dumps(initial_conversation_item))
     await openai_ws.send(json.dumps({"type": "response.create"}))
 
-async def send_session_update(openai_ws):
-    """Send session update to OpenAI WebSocket."""
 
+async def initialize_session(openai_ws):
+    """Control initial session with OpenAI."""
     session_update = {
-      "type": "session.update",
-      "session": {
-          "turn_detection": {"type": "server_vad", "threshold": 0.7,
-          "prefix_padding_ms": 500,
-          "silence_duration_ms": 800},
-          "input_audio_format": "g711_ulaw",
-          "output_audio_format": "g711_ulaw",
-          "voice": VOICE,
-          "instructions": SYSTEM_MESSAGE,
-          "input_audio_transcription": {
-          "model": "whisper-1"
-          },
-          "modalities": ["text", "audio"],
-          "temperature": 0.6,
-            "tools": [
-                {
-                "type": "function",
-                "name": "end_call",
-                "description": "Ends the current phone call.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                    "call_sid": {
-                        "type": "string",
-                        "description": "ACfbf93b471d1ff33bb122a1e0ab46c14d"
-                    }
-                    },
-                    "required": ["call_sid"]
-                }
-                }
-            ],
-        "tool_choice": "auto",
-      }
+        "type": "session.update",
+        "session": {
+            "turn_detection": {"type": "server_vad"},
+            "input_audio_format": "g711_ulaw",
+            "output_audio_format": "g711_ulaw",
+            "voice": VOICE,
+            "instructions": SYSTEM_MESSAGE,
+            "modalities": ["text", "audio"],
+            "temperature": 0.8
+        }
     }
     print('Sending session update:', json.dumps(session_update))
     await openai_ws.send(json.dumps(session_update))
-
+    
+    # Uncomment the next line to have the AI speak first
     await send_initial_conversation_item(openai_ws)
 
+    
 #Instagram API ----------------------------------------------------------
 
 @app.api_route("/privacy_policy", methods= ["GET", "POST"])
@@ -434,7 +439,7 @@ async def webhook(request: Request):
                     "Sorry, I didn't get that."
                 )
                 print(f"\n{assistant_response}\n")
-                send_instagram_message(sender_id, assistant_response)
+                send_instagram_message(user_access_token_ig,sender_id, assistant_response)
                 
             elif run.status == 'requires_action':
                 tool_outputs = []
@@ -477,7 +482,7 @@ async def webhook(request: Request):
                         "Sorry, I didn't get that."
                     )
                     print(f"\n{assistant_response}\n")
-                    send_instagram_message(sender_id, assistant_response)
+                    send_instagram_message(user_access_token_ig,sender_id, assistant_response)
                 else:
                     print(run.status)
             else: 
