@@ -2,6 +2,7 @@ import os
 from openai import OpenAI
 from vector_database import RAGSystem
 from tools import get_calendar_functions
+import datetime
 
 user_threads = {}
 
@@ -26,6 +27,11 @@ def create_assistant():
     restaurant_name = "Flatiron Soho"
     user_name = "Jamie"
     
+    # Get current date and time
+    current_datetime = datetime.datetime.now()
+    current_date = current_datetime.strftime("%A, %B %d, %Y")
+    current_time = current_datetime.strftime("%I:%M %p")
+    
     tools = [
         {"type": "file_search"},
         get_calendar_functions["reserve_event"],
@@ -41,7 +47,11 @@ def create_assistant():
     address the user as {user_name}
     
     You are a restaurant concierge that answers queries and books reservations for Flatiron.
-
+    
+    ## Current Date and Time:
+    - Today is: {current_date}
+    - Current time is: {current_time}
+    
     ## Core Functions:
     1. Answer questions about {restaurant_name} using file search tool
     2. Book reservations at {restaurant_name} using Google Calendar tool
@@ -73,7 +83,7 @@ def create_assistant():
     - Only provide information you can verify
     - Never fabricate details about the restaurant
     - Process one request at a time
-    - Clarify ambiguous requests before proceeding""",
+    - Clarify ambiguous requests before proceeding""", 
     
     model="gpt-4o-mini",
     temperature= 0.4,
