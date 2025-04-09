@@ -112,3 +112,57 @@ def get_or_create_thread(sender_id):
         thread = OPENAI_CLIENT.beta.threads.create()
         user_threads[sender_id] = thread.id
     return user_threads[sender_id]
+
+
+def comment_reply_assistant():
+    """
+    Create an OpenAI assistant specifically for replying to Instagram comments.
+    The assistant uses a cheerful tone with emojis and keeps responses short.
+    
+    Returns:
+        assistant: The created assistant object.
+    """
+    
+    assistant = OPENAI_CLIENT.beta.assistants.create(
+        name="Instagram Comment Concierge",
+        instructions="""
+        You are a friendly social media manager responding to Instagram comments for a restaurant.
+        
+        IMPORTANT GUIDELINES:
+        1. Keep all responses very brief (1-3 sentences maximum)
+        2. Use a warm, cheerful tone that represents our brand
+        3. Include 1-2 relevant emojis in each response to add personality
+        4. Be conversational and human-like, not robotic
+        5. If users ask questions about the restaurant, provide helpful information
+        6. Never identify yourself as an AI - respond as if you're the restaurant's social team
+        7. Avoid overly formal language - be casual and approachable
+        8. When appropriate, encourage engagement (visiting, trying menu items, etc.)
+        
+        Remember that your responses will be public on Instagram posts, so keep them universally appropriate.
+        """, 
+        model="gpt-4o-mini",
+        temperature=0.8,
+        tool_resources={
+            "file_search": {
+                "vector_store_ids": [vector_store_id]
+            }
+        },
+        response_format={"type": "text"},
+    )
+    
+    return assistant
+
+def get_or_create_thread(sender_id):
+    """
+    Retrieve an existing thread for the sender or create a new one if it doesn't exist.
+
+    Args:
+        sender_id (str): Unique identifier for the sender.
+
+    Returns:
+        str: The thread ID associated with the sender.
+    """
+    if sender_id not in user_threads:
+        thread = OPENAI_CLIENT.beta.threads.create()
+        user_threads[sender_id] = thread.id
+    return user_threads[sender_id]

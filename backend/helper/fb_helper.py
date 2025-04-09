@@ -5,6 +5,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def get_facebook_posts(page_id):
+    fields = "message,created_time,comments.limit(10){message,from,created_time}"
+    
+    url = f"https://graph.facebook.com/v21.0/{page_id}/posts"
+    access_token = os.getenv("FACEBOOK_ACCESS_TOKEN")
+    
+    payload = {
+        "fields": fields,
+        "access_token": access_token
+    }
+    
+    response = requests.get(url, params=payload)
+    data = response.json()
+    print(json.dumps(data, indent=4))
+
 def send_facebook_message(recipient_id, message_text):
     """
     Send a text message to a user via the Facebook Messaging API.
@@ -42,3 +57,6 @@ def send_facebook_message(recipient_id, message_text):
     except requests.exceptions.RequestException as e:
         print(f"Failed to send message: {str(e)}")
         return None
+
+
+    
