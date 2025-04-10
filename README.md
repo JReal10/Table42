@@ -1,19 +1,16 @@
-# Project ARQ: Flatiron Restaurant Dashboard
+# Table for 2: AI-Powered Customer Service & CRM Platform for Restaurants
 
 ## Project Overview
 
-Project ARQ is a comprehensive AI Assistant built for Restaurants. Features include:
-
-- Customer service through a restaurant concierge chatbot
-- Social media management with automated Instagram comment replies
-
-The application utilizes advanced AI technologies to enhance customer interactions and streamline restaurant operations. The dashboard provides an intuitive interface for staff to monitor and manage all digital customer touchpoints from a single platform.
+Table for 2 is a comprehensive AI Assistant built specifically for restaurants to bridge the gap between social media discovery and direct booking. With 58% of Gen Z diners stating they would visit more restaurants they find on social media if they could book directly, this platform solves a critical disconnect in the restaurant industry's digital customer journey.
 
 ## Features
 
-- **Instagram Integration**: Automated comment replies and direct message handling
-- **OpenAI Integration**: Leverages GPT models for natural language understanding and generation
-- **Vector Database**: Stores restaurant information for accurate responses to customer queries
+- Customer service through a restaurant concierge chatbot
+- Social media management with automated Instagram comment replies
+- Direct booking capabilities from social media platforms
+- Comprehensive restaurant management dashboard
+- Customer data analytics and profile tracking
 
 ## Technologies Used
 
