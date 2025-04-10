@@ -2,24 +2,16 @@
 
 ## Project Overview
 
-Project ARQ is a comprehensive dashboard application built for Flatiron Restaurant. It provides a centralized platform for managing various aspects of restaurant operations, including:
+Project ARQ is a comprehensive AI Assistant built for Restaurants. Features include:
 
 - Customer service through a restaurant concierge chatbot
 - Social media management with automated Instagram comment replies
-- Voice call handling with AI-powered assistance
-- Conversation history tracking
-- Personalized agent configuration
-- Data input and management
 
 The application utilizes advanced AI technologies to enhance customer interactions and streamline restaurant operations. The dashboard provides an intuitive interface for staff to monitor and manage all digital customer touchpoints from a single platform.
 
 ## Features
 
-- **Dashboard**: Overview of restaurant operations with active call monitoring
-- **Conversation History**: Track and review customer interactions
-- **Personalized Agent**: Configure AI assistant behavior and responses
 - **Instagram Integration**: Automated comment replies and direct message handling
-- **Voice Call Processing**: AI-powered phone call handling with speech recognition
 - **OpenAI Integration**: Leverages GPT models for natural language understanding and generation
 - **Vector Database**: Stores restaurant information for accurate responses to customer queries
 
@@ -51,7 +43,7 @@ The application utilizes advanced AI technologies to enhance customer interactio
 - OpenAI API key
 - Facebook/Instagram Developer account
 - Twilio account (for voice features)
-- Google Calendar API credentials (for reservation system)
+- Google Calendar API credentials (for the reservation system)
 
 ### Installation
 
@@ -191,4 +183,4 @@ This project is proprietary and intended for exclusive use by Flatiron Restauran
 
 ## Contact
 
-For inquiries, please contact [your-email@example.com](mailto:your-email@example.com)
+For inquiries, please contact [jamieogundiran@example.com](mailto:jamieogundiran@gmail.com)
