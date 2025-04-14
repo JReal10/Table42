@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+/frontend/node_modules
+/backend/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -13,28 +15,37 @@
 # testing
 /coverage
 
+# Python virtual environment
 ai_venv/
-
 
 # next.js
 /.next/
 /out/
+/frontend/.next/
+/frontend/out/
 
 # production
 /build
+/frontend/build
+/backend/build
 
 # misc
 .DS_Store
 *.pem
+.idea/
+.vscode/
 
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+/backend/logs
+/backend/*.log
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -43,6 +54,37 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Backend specific
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+/backend/dist/
+/backend/downloads/
+/backend/eggs/
+/backend/.eggs/
+/backend/lib/
+/backend/lib64/
+/backend/parts/
+/backend/sdist/
+/backend/var/
+*.egg-info/
+.installed.cfg
+*.egg
+/backend/htmlcov/
+/backend/.tox/
+/backend/.coverage
+/backend/.coverage.*
+/backend/.cache/
+/backend/credentials.json
+/backend/token.json
+/backend/*.sqlite
+/backend/*.sqlite3
+/backend/*.db
+/backend/.ipynb_checkpoints/
+
+# Project specific sensitive files
 backend/ig_token.json
 backend/cwdchat_config.json
 backend/fb_token.json
