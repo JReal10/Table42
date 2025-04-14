@@ -2,17 +2,11 @@ fastapi
 uvicorn
 pydantic
 python-dotenv
-elevenlabs
 pyaudio
 openai
 openai-agents
 requests
 aipolabs
-langgraph
-twilio
-openai-agents[voice]
-curses
-websockets
 
 
 

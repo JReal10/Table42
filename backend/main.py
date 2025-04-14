@@ -213,7 +213,7 @@ async def webhook(request: Request):
                                 (msg.content[0].text.value for msg in messages.data if msg.role == "assistant"),
                                 "Sorry, I didn't get that."
                             )
-                            print(f"Assistant response: {assistant_response}")
+                            print(f"AssistaSnt response: {assistant_response}")
                             
                             # Reply to the comment instead of sending a DM
                             #reply_to_instagram_comment(comment_id, assistant_response)
