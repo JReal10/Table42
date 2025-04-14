@@ -142,8 +142,8 @@ project-arq/
 
 This project was developed by:
 
-- **Jamie Ogundiran** - Lead Developer (Code Implementation)
-- **Simon Cho** - Research & Marketing
+- **Jamie Ogundiran** - Lead Developer (https://www.linkedin.com/in/jamie-ogundiran-874aa3230/)
+- **Simon Cho** - Research & Marketing (https://www.linkedin.com/in/simon-cho-a3945619a/)
 
 ## License
 
