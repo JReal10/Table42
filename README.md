@@ -14,7 +14,7 @@ Table for 2 is a comprehensive AI Assistant built specifically for restaurants t
 
 ## Technologies Used
 
-### Frontend
+### Frontend (Work in progress)
 
 - Next.js 15.2.3
 - React 19.0.0
@@ -26,7 +26,6 @@ Table for 2 is a comprehensive AI Assistant built specifically for restaurants t
 - Python
 - FastAPI
 - OpenAI API (GPT-4o and GPT-4o-mini)
-- Twilio for voice call handling
 - Facebook/Instagram Graph API
 - AipoLabs ACI for Google Calendar integration
 - Vector Database for restaurant information storage
@@ -35,11 +34,9 @@ Table for 2 is a comprehensive AI Assistant built specifically for restaurants t
 
 ### Prerequisites
 
-- Node.js 18.x or later
 - Python 3.8 or later
 - OpenAI API key
 - Facebook/Instagram Developer account
-- Twilio account (for voice features)
 - Google Calendar API credentials (for the reservation system)
 
 ### Installation
@@ -73,8 +70,6 @@ Table for 2 is a comprehensive AI Assistant built specifically for restaurants t
    OPENAI_API_KEY=your_openai_api_key
    FACEBOOK_ACCESS_TOKEN=your_facebook_access_token
    AIPOLABS_ACI_API_KEY=your_aipolabs_api_key
-   TWILIO_ACCOUNT_SID=your_twilio_sid
-   TWILIO_AUTH_TOKEN=your_twilio_auth_token
    LINKED_ACCOUNT_OWNER_ID=your_google_account_id
    ```
 
@@ -90,17 +85,9 @@ Table for 2 is a comprehensive AI Assistant built specifically for restaurants t
 
 5. **Start the development server**
 
-   Frontend:
-
-   ```bash
-   # In the root directory
-   npm run dev
-   ```
-
    Backend:
 
    ```bash
-   # In another terminal window
    cd backend
    source ai_venv/bin/activate  # On Windows: ai_venv\Scripts\activate
    python main.py
@@ -132,13 +119,6 @@ project-arq/
 ```
 
 ## Dependencies
-
-### Frontend Dependencies
-
-- react: ^19.0.0
-- react-dom: ^19.0.0
-- next: 15.2.3
-
 ### Backend Dependencies
 
 - fastapi
@@ -149,22 +129,10 @@ project-arq/
 - openai-agents
 - requests
 - aipolabs
-- langgraph
-- twilio
-- websockets
 
 ## Deployment
 
-The application can be deployed to Vercel for the frontend and a suitable Python hosting service for the backend (such as Heroku, AWS, or GCP).
-
-1. **Frontend Deployment (Vercel)**
-
-   ```bash
-   npm run build
-   # Then deploy using Vercel CLI or GitHub integration
-   ```
-
-2. **Backend Deployment**
+ **Backend Deployment**
    Depends on the hosting provider. Ensure environment variables are properly configured.
 
 ## Contributing
@@ -176,7 +144,7 @@ This project was developed by:
 
 ## License
 
-This project is proprietary and intended for exclusive use by Flatiron Restaurant.
+
 
 ## Contact
 
