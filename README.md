@@ -15,12 +15,14 @@ Table for 2 is a comprehensive AI Assistant built specifically for restaurants t
 
 ## Technologies Used
 
-### Frontend (Work in progress)
+### Frontend (Currently Under Development)
 
 - Next.js 15.2.3
 - React 19.0.0
 - TypeScript
 - Tailwind CSS 4.0
+
+The frontend is actively being developed and is not yet fully functional.
 
 ### Backend
 
@@ -145,6 +147,7 @@ This project was developed by:
 
 ## License
 
+This project is licensed under the GNU GENERAL PUBLIC LICENSE - see the [LICENSE](LICENSE) file for details.
 
 
 ## Contact
