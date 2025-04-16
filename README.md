@@ -5,6 +5,9 @@ Video Demo -> [Link to video demonstration](https://www.youtube.com/watch?v=tScM
 
 Table for 2 is a comprehensive AI Assistant built specifically for restaurants to bridge the gap between social media discovery and direct booking. With 58% of Gen Z diners stating they would visit more restaurants they find on social media if they could book directly, this platform solves a critical disconnect in the restaurant industry's digital customer journey.
 
+![image](https://github.com/user-attachments/assets/19a79f8b-ceff-41a1-ac1e-aa7a80c38e04)
+
+
 ## Features
 
 - Customer service through a restaurant concierge chatbot
